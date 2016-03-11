@@ -1,0 +1,17 @@
+# swap files
+*swp
+
+# temp files
+*~
+
+# ccs project related files
+*.bak
+*.cof
+*.err
+*.esym
+*.hex
+*.lst
+*.pjt
+*.sta
+*.sym
+*.tre
