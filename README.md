@@ -8,9 +8,9 @@
 	Todo:
 	
 	- [x] comunicaÃ§Ã£o pela USART
-	- [] setup timer1
-	- [] setup interrupÃ§Ãµes do timer1
-	- [] setup comunicaÃ§Ã£o com o esp8266
+	- [x] setup timer1
+	- [x] setup interrupção do timer1
+	- [] setup comunicação com o esp8266
 	
 ```
 	Team:

@@ -7,7 +7,7 @@
 #include <timer1.h>
 #include <USART.h>
 
-int send_data_en = 0;
+int send_data_en = 0, cont = 0;
 
 int main()
 {
@@ -17,11 +17,12 @@ int main()
 	
 	timer1_config();
 	timer1_set_start_value();
-	timer1_ebable();
+	timer1_enable();
         
         while(true) {
 		if (send_data_en) {
 			USART_send_string(msg);	
+			send_data_en = 0;
 		}
 	}
 }
@@ -29,6 +30,11 @@ int main()
 #int_timer1
 void isr_timer1()
 {
-	send_data_en = 1;
+	cont++;
+
+	if (cont >= 30) {
+		send_data_en = 1;
+		cont = 0;
+	}
 	PIR1 &= ~1;
 }
