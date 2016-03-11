@@ -7,13 +7,28 @@
 #include <timer1.h>
 #include <USART.h>
 
+int send_data_en = 0;
+
 int main()
 {
         char msg[] = { "essa mensagem nao possui o menor sentido... opa opa opa opa opa opa \r\n\0" };
-        USART_config();
+        
+	USART_config();
+	
+	timer1_config();
+	timer1_set_start_value();
+	timer1_ebable();
         
         while(true) {
-                delay_ms(1000);
-                USART_send_string(msg);
-        }
+		if (send_data_en) {
+			USART_send_string(msg);	
+		}
+	}
+}
+
+#int_timer1
+void isr_timer1()
+{
+	send_data_en = 1;
+	PIR1 &= ~1;
 }
