@@ -5,9 +5,11 @@
 	(período a definir) periodicamente ao esp8266, que envia-os
 	para o ThingSpeak.
 
-	@authors Leonardo Cavalcante do Prado (leolleocomp)
-		 Esron Dtamar
-		 Gabriel Rafael
-	
+'''
+	@authors 
+		 - Leonardo Cavalcante do Prado (leolleocomp)
+		 - Esron Dtamar
+		 - Gabriel Rafael
+'''	
 	Computer engineering undergraduates at UNIVASF - Federal
 	University of Vale do São Francisco.
