@@ -73,3 +73,37 @@ void USART_send_string(char *s)
 	RCSTA &= ~(1 << 7);        // disable SERIAL PORT 
 	TXSTA &= ~(1 << 5);        // disable TRANSMISSION
 }
+
+/**
+ *	USART_reception_enable
+ *
+ *	configura a porta serial para recepção de dados
+ **/
+
+void USART_recept_enable()
+{
+	RCSTA |= (1 << 5);
+	RCSTA |= (1 << 4);
+}
+
+char USART_get_char()
+{
+        char to_send;
+
+        while (!(PIR1 & (1 << 5)));
+        to_send = RCREG;
+        
+        return to_send;
+}
+
+/**
+ *	USART_recept_disable
+ *
+ *	'desliga' recepção de dados
+ **/
+
+void USART_recept_disable()
+{
+	RCSTA &= ~(1 << 5);
+	RCSTA &= ~(1 << 4);
+}

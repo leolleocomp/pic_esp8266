@@ -1,6 +1,7 @@
 #locate TXSTA  = 0x98
 #locate TXREG  = 0x19
 #locate RCSTA  = 0x18
+#locate RCREG  = 0x1A
 #locate SPBRG  = 0x99
 #locate TRISC  = 0x87
 #locate T1CON  = 0x10
