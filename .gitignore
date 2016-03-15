@@ -3,6 +3,8 @@
 
 # temp files
 *~
+/backup
+/dht22
 
 # ccs project related files
 *.bak
