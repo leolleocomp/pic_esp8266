@@ -95,14 +95,14 @@ void esp8266_config()
                       espMultConnections[] = { "AT+CIPMUX=1\r\n\0" };
         
         USART_send_string(espMode);
-        delay_ms(500);
+        delay_ms(2000);
      
         USART_send_string(espConnectAp);
-        delay_ms(500);
+        delay_ms(10000);
 
    
         USART_send_string(espMultConnections);
-        delay_ms(500);
+        delay_ms(2000);
 }
 
 /**
@@ -134,7 +134,7 @@ void esp8266_send_data()
         unsigned int8 tmp[90];
 
         USART_send_string(espPrepareSend);
-        delay_ms(500);
+        delay_ms(5000);
 
         sprintf(tmp, "%s&field1=%04ld&field2=%04lds&field3=%04ld\r\n\0", espGETcmd, temperatura, luminosidade, umidade);
         USART_send_string(tmp);
