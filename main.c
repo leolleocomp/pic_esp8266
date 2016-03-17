@@ -6,9 +6,9 @@
 #define TMR1L_START_VALUE 0b11011100
 #define TMR1H_START_VALUE 0b00001011
 
-long  temperatura  = 0,
-      luminosidade = 0,
-      umidade      = 0;
+int16  temperatura  = 0,
+       luminosidade = 0,
+       umidade      = 0;
       
 #include <string.h>
 #include <registers.h>
@@ -16,13 +16,26 @@ long  temperatura  = 0,
 unsigned int8 espPrepareSend[]     = { "AT+CIPSEND=4,71\r\n\0" },
               espGETcmd[]          = { "GET /update?key=SE27NFVOT83ISQ3Y" };
 
-int16 send_data_en = 0, cont = 0;
+int16 send_data_en = 0,  // enable send data
+      cont = 0;		 // controls the timming
+
+/**
+ *	USART_send_char
+ *
+ *	when TMRT == 1, sends to_send through serial
+ **/
 
 void USART_send_char(unsigned int8 to_send)
 {
         while (!(TXSTA & (1 << 1)));   // while (TMRT != 1)
         TXREG = to_send;               // envia dados <!> verificar tipo
 }
+
+/**
+ *	USART_send_string
+ *
+ *	sends a given string s through serial
+ **/
 
 void USART_send_string(char *s)
 {
@@ -34,11 +47,21 @@ void USART_send_string(char *s)
                 USART_send_char(s[i]);
 }
 
+/**
+ *	esp8266_config
+ *
+ * 	configures esp8266 in STATION MODE,
+ * 	connect to a access point according to xxxx ssid and xxxx password,
+ * 	set multiple connections.
+ *
+ * 	<!> todo : configure time delays
+ **/
+
 void esp8266_config()
 {                
-        unsigned int8        espMode[]            = { "AT+CWMODE=1\r\n\0" },
-                              espConnectAp[]       = { "AT+CWJAP=\"xxxx\",\"xxxx\"\r\n\0" },
-                              espMultConnections[] = { "AT+CIPMUX=1\r\n\0" };
+        unsigned int8 espMode[]            = { "AT+CWMODE=1\r\n\0" },
+                      espConnectAp[]       = { "AT+CWJAP=\"xxxx\",\"xxxx\"\r\n\0" },
+                      espMultConnections[] = { "AT+CIPMUX=1\r\n\0" };
         
         USART_send_string(espMode);
         delay_ms(500);
@@ -51,6 +74,14 @@ void esp8266_config()
         delay_ms(500);
 }
 
+/**
+ *	esp8266_open_tcp
+ *
+ * 	opens a tcp connection with the ThingSpeak API
+ *
+ * 	<!> todo: configure the time delay
+ **/
+
 void esp8266_open_tcp()
 {
          unsigned int8 espOpenTCP[] = { "AT+CIPSTART=4,\"TCP\",\"184.106.153.149\",80\r\n\0" };
@@ -58,6 +89,14 @@ void esp8266_open_tcp()
         USART_send_string(espOpenTCP);
         delay_ms(5000);
 }
+
+/**
+ *	esp8266_send_data
+ *
+ *	uses espGETcmd to send data to the TS
+ *
+ *	<!> todo: configure time delays	
+ **/
 
 void esp8266_send_data()
 {
@@ -77,41 +116,45 @@ void main()
 {
         unsigned int8 op[4] = {"\r\n\0"};
         
-        TXSTA  = 0b00100100;  
-        SPBRG  = 129;        
-        RCSTA  = 0b10000000;
-        TRISC  = 0b11111111;
-        
+	// USART configuration section
+        TXSTA  = 0b00100100;  // TXEN = BRGH = 1
+        SPBRG  = 129;         // 9600 baud rate => SPBRG = 129
+        RCSTA  = 0b10000000;  // SPEN = 1
+        TRISC  = 0b11111111;  // TRISC set, according with datasheed
+
+	// ADC configuration section
+        ADCON1 = 0b1??000100;
         USART_send_string(op);
          
 	delay_ms(10);
+
+	// configure esp
 	esp8266_config();
         
+	// timer1 configuration section
         T1CON  = 0b00000000;        
-        INTCON = 0b11000000; 
-        PIE1   = 0b00000001;
-        
-        TMR1L = TMR1L_START_VALUE;
+        INTCON = 0b11000000;		// GEIE = PEIE1 = 1
+        PIE1   = 0b00000001; 		// TMR1IE = 1
+        TMR1L = TMR1L_START_VALUE; 	// start_value = (3036)_10
         TMR1H = TMR1H_START_VALUE;
-        T1CON |= 1;
+        T1CON |= 1; 			// enable timer1
 
         while(true) {
         	delay_ms(1000);
         	send_data_en = 1;
         	
                 if (send_data_en == 1) {
-                        T1CON &= ~1;
+                        T1CON &= ~1;	// timer1 DISABLE
                         
                         esp8266_open_tcp();
+			// read adc here
                         esp8266_send_data();
                         send_data_en = 0;
                         
-                        //TMR1L = TMR1L_START_VALUE;
+                        //TMR1L = TMR1L_START_VALUE; 
                         //TMR1H = TMR1H_START_VALUE;
-                        T1CON |= 1;
+                        T1CON |= 1;	// timer1 ENABLE
                 }
-                
-                //TXREG = 'x';
         }
 }
 
@@ -119,15 +162,11 @@ void main()
 void isr_timer1()
 {
         cont++;
-       // TXREG = 'z';
+
         if (cont >= 76) {
                 send_data_en = 1;
                 cont = 0;
         }
-       //USART_send_char('x');
-      // TXREG='x';
-       // while (!(TXSTA & 2));
-       // TXREG = '\0';
         
        // TMR1L = TMR1L_START_VALUE;
        // TMR1H = TMR1H_START_VALUE;

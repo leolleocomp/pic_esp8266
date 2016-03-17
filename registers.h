@@ -10,3 +10,7 @@
 #locate INTCON = 0x0B 
 #locate PIE1   = 0x8C
 #locate PIR1   = 0x0C
+#locate ADRESH = 
+#locate ADRESL = 
+#locate ADCON0 = 
+#locate ADCON1 = 
