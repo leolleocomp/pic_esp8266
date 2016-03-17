@@ -6,9 +6,10 @@
 #define TMR1L_START_VALUE 0b11011100
 #define TMR1H_START_VALUE 0b00001011
 
-int16  temperatura  = 0,
-       luminosidade = 0,
-       umidade      = 0;
+#define TEMPERATURA  0
+#define LUMINOSIDADE 1
+#define UMIDADE      2
+int16 sensor[3]; 
       
 #include <string.h>
 #include <registers.h>
@@ -18,6 +19,36 @@ unsigned int8 espPrepareSend[]     = { "AT+CIPSEND=4,71\r\n\0" },
 
 int16 send_data_en = 0,  // enable send data
       cont = 0;		 // controls the timming
+
+
+/**
+ *	read_ADC
+ *
+ *	read sensor data:
+ *
+ *	- first it reads temperature
+ *	- second luminosity
+ *	- third  umidity
+ *
+ *	<!> to do: test this function
+ **/
+
+void read_ADC()
+{	
+	int8 k, channel[] = { 0, 1, 3 };
+
+	for (k = 0; k < 3; ++k) {
+		ADCON0 |= (channel[k] << 4); // selects ad channel (bit-to-bit operations bro!)
+		delay_us(30);		     // waits Tad ~ 64Tosc (for clk = 20MHz)
+		ADCON0 |= (1 << 2);	     // GO = 1
+		sensor[k] = 0;
+
+		while (ADCON0 & (1 << 2));   // while !(~DONE) continue
+
+		sensor[k] = (ADRESH << 8);   // 8 most significant bits
+		sensor[k] |= ADRESL;	     // 8 least significant bits
+	}	
+}
 
 /**
  *	USART_send_char
@@ -123,7 +154,8 @@ void main()
         TRISC  = 0b11111111;  // TRISC set, according with datasheed
 
 	// ADC configuration section
-        ADCON1 = 0b1??000100;
+        ADCON1 = 0b11000100;	// ADFM = ADCS2 = 1, Tad = 64 * Tosc
+	ADCON0 = 0b10000001;
         USART_send_string(op);
          
 	delay_ms(10);
