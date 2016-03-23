@@ -11,7 +11,7 @@
 #define UMIDADE      2
 
 int16   sensor[3];
-float32 values[3];
+float32  value[3];
       
 #include <string.h>
 #include <registers.h>
@@ -22,124 +22,161 @@ unsigned int8 espPrepareSend[] = { "AT+CIPSEND=4,71\r\n\0" },
 long send_data_en = 0,  // enable send data
      cont = 0;         // controls the timming
 
+float32 transform_dht22_data(int16 data)
+{
+        float32 to_send, aux;        
+        int8 k;
+        
+        to_send = data & 0xF0;
+        data &= 0x0F;
+
+        for (k = 0, aux = 0.; k < 3; ++k) {
+                aux = aux * 1E-1 + data % 10;
+                data /= 10;
+        }
+
+        aux *= 1E-1;
+
+        return to_send + aux;
+}
+
 /**
- *	start_signal
+ *        transform_data
+ *        
+ *        transfor to value the sensor data
+ **/ 
+
+void transform_data()
+{
+        float32 vo;
+        
+        vo   = sensor[LUMINOSIDADE];
+
+        value[LUMINOSIDADE] = vo / (20 * (5 - vo));
+        value[TEMPERATURA]  = transform_dht22_data(sensor[TEMPERATURA]);
+        value[UMIDADE]      = transform_dht22_data(sensor[UMIDADE]);
+}
+
+/**
+ *        start_signal
  *
- *	starts communication with the sensor
+ *        starts communication with the sensor
  **/
 
 void start_signal()
 {
-	TRISA &= ~(1 << 1);    //Configure RA1 as output
-	PORTA &= ~(1 << 1);    //RA1 sends 0 to the sensor
-	delay_ms(18);
-	PORTA |= (1 << 1);     //RA1 sends 1 to de sensor
-	delay_us(30);
-	TRISA |= (1 << 1);     // RA1 as input
+        TRISA &= ~(1 << 1);    //Configure RA1 as output
+        PORTA &= ~(1 << 1);    //RA1 sends 0 to the sensor
+        delay_ms(18);
+        PORTA |= (1 << 1);     //RA1 sends 1 to de sensor
+        delay_us(30);
+        TRISA |= (1 << 1);     // RA1 as input
 }
 
 /**
- *	check_response
+ *        check_response
  *
- *	checks the sensor
+ *        checks the sensor
  **/
 
 int8 check_response()
 {
-	int8 check;
-	check = 0;
-	delay_us(40);
+        int8 check;
+        check = 0;
+        delay_us(40);
 
-	if (!(PORTA & (1 << 1))){
-		delay_us(80);
-		if (PORTA & (1 << 1))  check = 1;
-		delay_us(40);
-	}
+        if (!(PORTA & (1 << 1))){
+                delay_us(80);
+                if (PORTA & (1 << 1))  check = 1;
+                delay_us(40);
+        }
+	
+	return check;
 }
 
 /**
- *	read_data
+ *        read_data
  *
- *	reads 8 bits from sensor
+ *        reads 8 bits from sensor
  **/
 
 int8 read_data()
-{	
-	int8 i, j;
+{        
+        int8 i, j;
 
-	for(j = 0; j < 8; j++) {
-		while (!(PORTA & (1 << 1))); //Wait until RA0 goes HIGH
-		delay_us(30);
+        for(j = 0; j < 8; j++) {
+                while (!(PORTA & (1 << 1))); //Wait until RA0 goes HIGH
+                delay_us(30);
 
-		if (!(PORTA & (1 << 1)))
-		      i&= ~(1<<(7 - j));  	//Clear bit (7-b)
-		else {
-			i|= (1 << (7 - j));  	//Set bit (7-b)
-			while(PORTA & (1 << 1));
-		}  //Wait until RA0 goes LOW
-	}
-	return i;
+                if (!(PORTA & (1 << 1)))
+                      i&= ~(1<<(7 - j));          //Clear bit (7-b)
+                else {
+                        i|= (1 << (7 - j));          //Set bit (7-b)
+                        while(PORTA & (1 << 1));
+                }  //Wait until RA0 goes LOW
+        }
+        return i;
 }
 
 /**
- *	read_RH_and_T
+ *        read_RH_and_T
  *
- *	reads umidity and temperature
- *	data through dht22
+ *        reads umidity and temperature
+ *        data through dht22
  **/
 
 void read_RH_and_T()
 {
-	int8 check,
-	     RH_byte1,
-	     RH_byte2,
-	     T_byte1,
-	     T_byte2,
-	     check_sum;
+        int8 check,
+             RH_byte1,
+             RH_byte2,
+             T_byte1,
+             T_byte2,
+             check_sum;
 
-	start_signal();
-	check = check_response();
+        start_signal();
+        check = check_response();
 
-	if (check == 1) {
-		RH_byte1  = read_data();
-		RH_byte2  = read_data();
-		T_byte1   = read_data();
-		T_byte2   = read_data();	
-		check_sum = read_data();
+        if (check == 1) {
+                RH_byte1  = read_data();
+                RH_byte2  = read_data();
+                T_byte1   = read_data();
+                T_byte2   = read_data();        
+                check_sum = read_data();
 
-		if (check_sum == (RH_byte1 + RH_byte2 + T_byte1 + T_byte2) & 0xFF) {
-			sensor[UMIDADE]   = RH_byte1;	
-			sensor[UMIDADE] <<= 8;
-		        sensor[UMIDADE]  |= RH_byte2;	
+                if (check_sum == (RH_byte1 + RH_byte2 + T_byte1 + T_byte2) & 0xFF) {
+                        sensor[UMIDADE]   = RH_byte1;        
+                        sensor[UMIDADE] <<= 8;
+                        sensor[UMIDADE]  |= RH_byte2;        
 
-			sensor[TEMPERATURA]   = T_byte1;
-			sensor[TEMPERATURA] <<= 8;
-			sensor[TEMPERATURA]  |= T_byte2;
-		}
-	}
+                        sensor[TEMPERATURA]   = T_byte1;
+                        sensor[TEMPERATURA] <<= 8;
+                        sensor[TEMPERATURA]  |= T_byte2;
+                }
+        }
 }
 
 /**
  *        read_ADC
  *
  *        read sensor data:
- *	
- *	  reads luminosity sensor data
+ *        
+ *          reads luminosity sensor data
  *
  *        <!> to do: test this function
  **/
 
 void readADC()
 {      
-	delay_us(50);                   // waits Tad ~ 64Tosc (for clk = 20MHz)
-	ADCON0 |= (1 << 2);             // GO = 1
-	sensor[LUMINOSIDADE] = 0;
+        delay_us(50);                   // waits Tad ~ 64Tosc (for clk = 20MHz)
+        ADCON0 |= (1 << 2);             // GO = 1
+        sensor[LUMINOSIDADE] = 0;
 
-	while (ADCON0 & (1 << 2));   // while !(~DONE) continue
+        while (ADCON0 & (1 << 2));   // while !(~DONE) continue
 
-	sensor[LUMINOSIDADE]   = ADRESH;   // 8 most significant bits
-	sensor[LUMINOSIDADE] <<= 8;
-	sensor[LUMINOSIDADE]  |= ADRESL;   // 8 least significant bits
+        sensor[LUMINOSIDADE]   = ADRESH;   // 8 most significant bits
+        sensor[LUMINOSIDADE] <<= 8;
+        sensor[LUMINOSIDADE]  |= ADRESL;   // 8 least significant bits
 }
 
 /**
@@ -248,7 +285,7 @@ void main()
         ADCON1 = 0b11000100;        // ADFM = ADCS2 = 1, Tad = 64 * Tosc
         ADCON0 = 0b10000001;
         TRISA  = 0b00001011;
-	
+        
         USART_send_string(op);
          
         delay_ms(100);
