@@ -17,6 +17,7 @@
 #locate PIR1   = 0x0C
 
 // ADC related registers
+#locate PORTA  = 0x05 
 #locate TRISA  = 0x85
 #locate ADRESH = 0x1E
 #locate ADRESL = 0x9E
