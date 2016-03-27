@@ -16,7 +16,7 @@ float32  value[3];
 #include <string.h>
 #include <registers.h>
 
-unsigned int8 espPrepareSend[] = { "AT+CIPSEND=4,71\r\n\0" },
+unsigned int8 espPrepareSend[] = { "AT+CIPSEND=4,77\r\n\0" },
               espGETcmd[]      = { "GET /update?key=SE27NFVOT83ISQ3Y" };
 
 long send_data_en = 0,  // enable send data
@@ -27,15 +27,15 @@ float32 transform_dht22_data(int16 data)
         float32 to_send, aux;        
         int8 k;
         
-        to_send = data & 0xF0;
-        data &= 0x0F;
+        to_send = data >> 8;
+        data &= 0xFF;
 
         for (k = 0, aux = 0.; k < 3; ++k) {
-                aux = aux * 1E-1 + data % 10;
+                aux = aux * 0.1 + data % 10;
                 data /= 10;
         }
 
-        aux *= 1E-1;
+        aux *= 0.1;
 
         return to_send + aux;
 }
@@ -48,11 +48,7 @@ float32 transform_dht22_data(int16 data)
 
 void transform_data()
 {
-        float32 vo;
-        
-        vo   = sensor[LUMINOSIDADE];
-
-        value[LUMINOSIDADE] = vo / (20 * (5 - vo));
+        value[LUMINOSIDADE] = sensor[LUMINOSIDADE] / 1023. * 100;
         value[TEMPERATURA]  = transform_dht22_data(sensor[TEMPERATURA]);
         value[UMIDADE]      = transform_dht22_data(sensor[UMIDADE]);
 }
@@ -65,12 +61,12 @@ void transform_data()
 
 void start_signal()
 {
-        TRISA &= ~(1 << 1);    //Configure RA1 as output
-        PORTA &= ~(1 << 1);    //RA1 sends 0 to the sensor
+        TRISA &= ~(1 << 3);    //Configure RA1 as output
+        PORTA &= ~(1 << 3);    //RA1 sends 0 to the sensor
         delay_ms(18);
-        PORTA |= (1 << 1);     //RA1 sends 1 to de sensor
+        PORTA |= (1 << 3);     //RA1 sends 1 to de sensor
         delay_us(30);
-        TRISA |= (1 << 1);     // RA1 as input
+        TRISA |= (1 << 3);     // RA1 as input
 }
 
 /**
@@ -85,13 +81,13 @@ int8 check_response()
         check = 0;
         delay_us(40);
 
-        if (!(PORTA & (1 << 1))){
+        if (!(PORTA & (1 << 3))){
                 delay_us(80);
-                if (PORTA & (1 << 1))  check = 1;
+                if (PORTA & (1 << 3))  check = 1;
                 delay_us(40);
         }
-	
-	return check;
+        
+        return check;
 }
 
 /**
@@ -105,14 +101,14 @@ int8 read_data()
         int8 i, j;
 
         for(j = 0; j < 8; j++) {
-                while (!(PORTA & (1 << 1))); //Wait until RA0 goes HIGH
+                while (!(PORTA & (1 << 3))); //Wait until RA0 goes HIGH
                 delay_us(30);
 
-                if (!(PORTA & (1 << 1)))
+                if (!(PORTA & (1 << 3)))
                       i&= ~(1<<(7 - j));          //Clear bit (7-b)
                 else {
                         i|= (1 << (7 - j));          //Set bit (7-b)
-                        while(PORTA & (1 << 1));
+                        while(PORTA & (1 << 3));
                 }  //Wait until RA0 goes LOW
         }
         return i;
@@ -265,7 +261,7 @@ void esp8266_send_data()
         USART_send_string(espPrepareSend);
         delay_ms(5000);
 
-        sprintf(tmp, "%s&field1=%04ld&field2=%04lds&field3=%04ld\r\n\0", espGETcmd, sensor[UMIDADE], sensor[LUMINOSIDADE], sensor[TEMPERATURA]);
+        sprintf(tmp, "%s&field1=%06.2f&field2=%06.2f&field3=%06.2f\r\n\0", espGETcmd, value[LUMINOSIDADE], value[TEMPERATURA], value[UMIDADE]);
         USART_send_string(tmp);
         delay_ms(5000);
 }
@@ -282,7 +278,7 @@ void main()
         TRISC  = 0b11111111;  // TRISC set, according with datasheed
 
         // ADC config 
-        ADCON1 = 0b11000100;        // ADFM = ADCS2 = 1, Tad = 64 * Tosc
+        ADCON1 = 0b11001110;        // ADFM = ADCS2 = 1, Tad = 64 * Tosc
         ADCON0 = 0b10000001;
         TRISA  = 0b00001011;
         
@@ -310,6 +306,8 @@ void main()
                         
                         esp8266_open_tcp();
                         readADC();
+                        read_RH_and_T();
+                        transform_data();
                         esp8266_send_data();
                         send_data_en = 0;
                         
