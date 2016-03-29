@@ -3,9 +3,6 @@
 #device ADC=10
 #use delay(clock = 20000000)
 
-#define TMR1L_START_VALUE 0b11011100
-#define TMR1H_START_VALUE 0b00001011
-
 #define LUMINOSIDADE 0
 #define TEMPERATURA  1
 #define UMIDADE      2
@@ -16,28 +13,30 @@ float32  value[3];
 #include <string.h>
 #include <registers.h>
 
-unsigned int8 espPrepareSend[] = { "AT+CIPSEND=4,77\r\n\0" },
-              espGETcmd[]      = { "GET /update?key=SE27NFVOT83ISQ3Y" };
+unsigned int8 espGETcmd[] = { "GET /update?key=SE27NFVOT83ISQ3Y" };
 
-long send_data_en = 0,  // enable send data
+long send_data_en = 0, // enable send data
      cont = 0;         // controls the timming
 
-float32 transform_dht22_data(int16 data)
+float32 transform_dht22_T(int16 T)
 {
-        float32 to_send, aux;        
-        int8 k;
-        
-        to_send = data >> 8;
-        data &= 0xFF;
+	int16 to_send;
+	
+	to_send = T & 0x7FFF;
+	
+	if (T & (1 << 15))
+		to_send *= -1;
+		
+	return to_send * 0.1;
+}
 
-        for (k = 0, aux = 0.; k < 3; ++k) {
-                aux = aux * 0.1 + data % 10;
-                data /= 10;
-        }
-
-        aux *= 0.1;
-
-        return to_send + aux;
+float32 transform_dht22_RH(int16 RH)
+{
+	int16 to_send;
+	
+	to_send = RH & 0xFFFF;
+	
+	return to_send * 0.1;
 }
 
 /**
@@ -49,8 +48,8 @@ float32 transform_dht22_data(int16 data)
 void transform_data()
 {
         value[LUMINOSIDADE] = sensor[LUMINOSIDADE] / 1023. * 100;
-        value[TEMPERATURA]  = transform_dht22_data(sensor[TEMPERATURA]);
-        value[UMIDADE]      = transform_dht22_data(sensor[UMIDADE]);
+        value[TEMPERATURA]  = transform_dht22_T(sensor[TEMPERATURA]);
+        value[UMIDADE]      = transform_dht22_RH(sensor[UMIDADE]);
 }
 
 /**
@@ -240,7 +239,7 @@ void esp8266_config()
 
 void esp8266_open_tcp()
 {
-         unsigned int8 espOpenTCP[] = { "AT+CIPSTART=4,\"TCP\",\"184.106.153.149\",80\r\n\0" };
+        unsigned int8 espOpenTCP[] = { "AT+CIPSTART=4,\"TCP\",\"184.106.153.149\",80\r\n\0" };
          
         USART_send_string(espOpenTCP);
         delay_ms(5000);
@@ -256,12 +255,16 @@ void esp8266_open_tcp()
 
 void esp8266_send_data()
 {
-        unsigned int8 tmp[90];
-
+        unsigned int8 tmp[90],
+        	      espPrepareSend[20];
+        	      
+        sprintf(tmp, "%s&field1=%.1f&field2=%.1f&field3=%.1f\r\n\0", espGETcmd, value[LUMINOSIDADE], value[TEMPERATURA], value[UMIDADE]);
+        
+        sprintf(espPrepareSend, "AT+CIPSEND=4,%ld\r\n\0", strlen(tmp));
+       
         USART_send_string(espPrepareSend);
         delay_ms(5000);
-
-        sprintf(tmp, "%s&field1=%06.2f&field2=%06.2f&field3=%06.2f\r\n\0", espGETcmd, value[LUMINOSIDADE], value[TEMPERATURA], value[UMIDADE]);
+        
         USART_send_string(tmp);
         delay_ms(5000);
 }
@@ -269,11 +272,10 @@ void esp8266_send_data()
 void main()
 {
         unsigned int8 op[4] = {"\r\n\0"};
-       
         
         // USART configuration section
         TXSTA  = 0b00100100;  // TXEN = BRGH = 1
-        SPBRG  = 129;         // 9600 baud rate => SPBRG = 129
+        SPBRG  = 10;          // 115200 baud rate => SPBRG = 10
         RCSTA  = 0b10000000;  // SPEN = 1
         TRISC  = 0b11111111;  // TRISC set, according with datasheed
 
@@ -284,7 +286,7 @@ void main()
         
         USART_send_string(op);
          
-        delay_ms(100);
+        delay_ms(1000);
 
         // configure esp
         esp8266_config();
@@ -293,14 +295,11 @@ void main()
         T1CON  = 0b00000000;        
         INTCON = 0b11000000;                // GEIE = PEIE1 = 1
         PIE1   = 0b00000001;                 // TMR1IE = 1
-        //TMR1L  = TMR1L_START_VALUE;         // start_value = (3036)_10
-        //TMR1H  = TMR1H_START_VALUE;
+        TMR1L  = 0;         // start_value = (3036)_10
+        TMR1H  = 0;
         T1CON |= 1;                         // enable timer1
 
         while(true) {
-                delay_ms(1000);
-                send_data_en = 1;
-                
                 if (send_data_en == 1) {
                         T1CON &= ~1;        // timer1 DISABLE
                         
@@ -310,9 +309,7 @@ void main()
                         transform_data();
                         esp8266_send_data();
                         send_data_en = 0;
-                        
-                        //TMR1L = TMR1L_START_VALUE; 
-                        //TMR1H = TMR1H_START_VALUE;
+                      
                         T1CON |= 1;        // timer1 ENABLE
                 }
         }
@@ -327,7 +324,4 @@ void isr_timer1()
                 send_data_en = 1;
                 cont = 0;
         }
-        
-       // TMR1L = TMR1L_START_VALUE;
-       // TMR1H = TMR1H_START_VALUE;
 }

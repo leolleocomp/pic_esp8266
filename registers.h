@@ -11,6 +11,10 @@
 #locate TMR1L  = 0x0E
 #locate TMR1H  = 0x0F
 
+// timer0 related registers
+#locate TMR0	   = 0x01
+#locate OPTIONREG  = 0x81 
+
 // interrupts related registers
 #locate INTCON = 0x0B 
 #locate PIE1   = 0x8C
