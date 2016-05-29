@@ -295,8 +295,8 @@ void main()
         T1CON  = 0b00000000;        
         INTCON = 0b11000000;                // GEIE = PEIE1 = 1
         PIE1   = 0b00000001;                 // TMR1IE = 1
-        TMR1L  = 0;         // start_value = (3036)_10
-        TMR1H  = 0;
+        TMR1L  = TMR1L_START_VALUE;         // start_value = (3036)_10
+        TMR1H  = TMR1H_START_VALUE;
         T1CON |= 1;                         // enable timer1
 
         while(true) {
