@@ -10,8 +10,8 @@ Todo:
 - [x] comunicação pela USART
 - [x] setup timer1
 - [x] setup interrupção do timer1
-- [ ] setup ADC read
-- [ ] setup comunicação com o esp8266
+- [x] setup ADC read
+- [x] setup comunicação com o esp8266
 
 
 Team:
